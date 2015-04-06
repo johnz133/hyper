@@ -220,6 +220,34 @@ impl NetworkListener for HttpListener {
     }
 }
 
+/////////////////////////////////////SOLICIT/////////////////////////////////////////////////
+// TODO integrate this stuff into existing structs
+// Does Clone get it too?
+// pub trait TransportStream: Read + Write {
+//     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
+//         let mut total = 0;
+//         while total < buf.len() {
+//             let read = try!(self.read(&mut buf[total..]));
+//             if read == 0 {
+//                 // We consider this an unexpected end of file and return an
+//                 // error since we were unable to read the minimum amount of
+//                 // bytes.
+//                 return Err(io::Error::new(io::ErrorKind::Other,
+//                                           "Not enough bytes"));
+//             }
+//             total += read;
+//         }
+
+//         Ok(())
+//     }
+// }
+// /// Since `TcpStream` already implements `Read` and `Write` we do not define any
+// /// additional required methods on `TransportStream`, we get this for free.
+// impl TransportStream for TcpStream {}
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+
 #[doc(hidden)]
 pub struct CloneTcpStream(TcpStream);
 
@@ -229,6 +257,8 @@ impl Clone for CloneTcpStream{
         CloneTcpStream(self.0.try_clone().unwrap())
     }
 }
+
+//TODO: add transport trait to cloneTcpStream
 
 impl Read for CloneTcpStream {
     #[inline]
