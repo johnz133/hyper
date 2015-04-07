@@ -5,5 +5,5 @@
 pub use self::simple::SimpleClient;
 // pub use self::async::Client;
 
-mod simple;
+pub mod simple;
 // mod async;
