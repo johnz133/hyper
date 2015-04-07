@@ -11,7 +11,7 @@
 
 use super::session::Session;
 use super::{HttpError, HttpResult, Request};
-use super::net::TransportStream;
+use super::super::net::TransportStream;
 use super::frame::{
     Frame,
     RawFrame,
@@ -378,7 +378,7 @@ mod tests {
         RawFrame,
     };
     use super::{HttpConnection, HttpFrame, ClientConnection};
-    use super::super::net::TransportStream;
+    use super::super::super::net::TransportStream;
     use super::super::{HttpError, Request, StreamId, Header};
     use super::super::session::Session;
     use hpack;

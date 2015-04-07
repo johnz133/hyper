@@ -1,5 +1,5 @@
 #![doc(html_root_url = "https://hyperium.github.io/hyper/hyper/index.html")]
-#![deny(missing_docs)]
+//#![deny(missing_docs)]
 #![cfg_attr(test, deny(warnings))]
 #![cfg_attr(test, feature(test))]
 
@@ -143,6 +143,12 @@ extern crate log;
 #[cfg(test)]
 extern crate test;
 
+// /////////////SOLICIT///////////////////
+
+extern crate hpack;
+
+// ///////////////////////////////////////
+
 
 pub use mimewrapper::mime;
 pub use url::Url;
@@ -172,6 +178,10 @@ mod mock;
 #[doc(hidden)]
 pub mod buffer;
 pub mod client;
+// TAKE THESE OUT///////////
+pub mod client2;
+pub mod http2;
+// //////////////
 pub mod error;
 pub mod method;
 pub mod header;
