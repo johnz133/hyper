@@ -63,8 +63,9 @@ pub struct SimpleClient {
 
 
 impl Request<Fresh> {
-    /// Create a new client request.                HttpResult<Request<Fresh>>
-    pub fn new(method: method::Method, url: Url) -> HttpResult<http2::Response> {
+    /// Create a new client request.
+    ///ORGINAL:new(method: method::Method, url: Url)   ->  HttpResult<Request<Fresh>>
+    pub fn new() -> HttpResult<http2::Response> {
         // GOAL: create a http/2
         // Input: method and URL
         // If first request (request that starts connection)
