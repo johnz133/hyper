@@ -86,3 +86,10 @@ impl From<httparse::Error> for HttpError {
         }
     }
 }
+//solicit hack
+use http2;
+impl From<http2::HttpError> for HttpError {
+    fn from(err: http2::HttpError) -> HttpError{
+        HttpStatusError
+    }
+}

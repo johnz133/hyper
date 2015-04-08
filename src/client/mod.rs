@@ -38,6 +38,15 @@ pub use self::response::Response;
 pub mod request;
 pub mod response;
 
+///////////////////SOLICIT
+use std::net::TcpStream;
+
+use super::http2::connection::ClientConnection;
+use super::http2::session::{DefaultSession, Stream};
+use super::http2;
+
+/////////////////////////////////////////////////////////
+
 /// A Client to use additional features with Requests.
 ///
 /// Clients can handle things such as: redirect policy.
@@ -49,8 +58,21 @@ pub struct Client<C> {
 impl<'v> Client<HttpConnector<'v>> {
 
     /// Create a new Client.
-    pub fn new() -> Client<HttpConnector<'v>> {
-        Client::with_connector(HttpConnector(None))
+    // pub fn new() -> Client<HttpConnector<'v>> {
+    pub fn new() -> SimpleClient {
+        let mut client = SimpleClient {
+            conn: ClientConnection::new(
+                TcpStream::connect(&("nghttp2.org", 80)).unwrap(),
+                DefaultSession::new()),
+            next_stream_id: 1,
+            host: "nghttp2.org".as_bytes().to_vec(),
+        };
+        //TODO: move client.conn.init into somewhere else
+        client.conn.init();
+        client
+
+        //hyper code:
+       // Client::with_connector(HttpConnector(None))
     }
 
     /// Set the SSL verifier callback for use with OpenSSL.
@@ -60,6 +82,47 @@ impl<'v> Client<HttpConnector<'v>> {
 
 }
 
+pub struct SimpleClient {
+    /// The underlying `ClientConnection` that the client uses
+    pub conn: ClientConnection<TcpStream, DefaultSession>,
+    /// Holds the ID that can be assigned to the next stream to be opened by the
+    /// client.
+    pub next_stream_id: u32,
+    /// Holds the domain name of the host to which the client is connected to.
+    pub host: Vec<u8>,
+}
+
+impl SimpleClient {
+    pub fn get<U: IntoUrl>(&mut self, url: U) -> SolicitRequestBuilder {
+        // self.request(Method::Get, url)
+        let mut stream_id = self.next_stream_id;
+        self.next_stream_id += 2;
+
+        self.conn.session.new_stream(stream_id);
+
+        //creating the get request
+        let scheme = b"http".to_vec();
+        let mut headers: Vec<http2::Header> = vec![
+            (b":method".to_vec(), b"GET".to_vec()),
+            (b":path".to_vec(), b"/".to_vec()),
+            (b":authority".to_vec(), self.host.clone()),
+            (b":scheme".to_vec(), scheme),
+        ];
+
+        // http2::Request {
+        //                 stream_id: stream_id,
+        //                 headers: headers,
+        //                 body: Vec::new(),
+        //             }
+
+        SolicitRequestBuilder {
+            stream_id: stream_id,
+            headers: headers,
+            client: self,
+        }
+    }
+
+}
 impl<C: NetworkConnector> Client<C> {
 
     /// Create a new client with a specific connector.
@@ -79,6 +142,36 @@ impl<C: NetworkConnector> Client<C> {
     pub fn get<U: IntoUrl>(&mut self, url: U) -> RequestBuilder<U, C> {
         self.request(Method::Get, url)
     }
+
+    // SOLICIT style GET
+    // pub fn get<U: IntoUrl>(&mut self, url: U) -> SolicitRequestBuilder {
+    //     // self.request(Method::Get, url)
+    //     let mut stream_id = self.next_stream_id;
+    //     self.next_stream_id += 2;
+
+    //     self.conn.session.new_stream(stream_id);
+
+    //     //creating the get request
+    //     let scheme = b"http".to_vec();
+    //     let mut headers: Vec<http2::Header> = vec![
+    //         (b":method".to_vec(), b"GET".to_vec()),
+    //         (b":path".to_vec(), b"/".to_vec()),
+    //         (b":authority".to_vec(), self.host.clone()),
+    //         (b":scheme".to_vec(), scheme),
+    //     ];
+
+    //     // http2::Request {
+    //     //                 stream_id: stream_id,
+    //     //                 headers: headers,
+    //     //                 body: Vec::new(),
+    //     //             }
+
+    //     SolicitRequestBuilder {
+    //         stream_id: stream_id,
+    //         headers: headers,
+    //         client: self,
+    //     }
+    // }
 
     /// Build a Head request.
     pub fn head<U: IntoUrl>(&mut self, url: U) -> RequestBuilder<U, C> {
@@ -113,6 +206,47 @@ impl<C: NetworkConnector> Client<C> {
     }
 }
 
+pub struct SolicitRequestBuilder<'a> {
+    stream_id: u32,
+    client: &'a mut SimpleClient, //ClientConnection<TcpStream, DefaultSession>,
+    // url: U,
+    headers: Vec<http2::Header>,
+    // method: Method,
+    // body: Option<Body<'a>>,
+}
+
+impl<'a> SolicitRequestBuilder <'a> {
+    // SOLICIT style send
+    pub fn send(self) -> HttpResult<http2::Response> {
+        self.client.conn.send_request(http2::Request {
+                        stream_id: self.stream_id,
+                        headers: self.headers,
+                        body: Vec::new(),
+                    });
+        // try!(self.conn.send_request(Request {
+        //     stream_id: stream_id,
+        //     headers: headers,
+        //     body: Vec::new(),
+        // }));
+
+        let mut response:HttpResult<http2::Response>;
+        loop {
+            if let Some(stream) = self.client.conn.session.get_stream(self.stream_id) {
+                if stream.is_closed(){
+                    response = Ok(http2::Response{
+                        stream_id: stream.id(),
+                        headers: stream.headers.clone().unwrap(),
+                        body: stream.body.clone(),
+                    });
+                    break;
+                }
+            }
+            // try!(client.conn.handle_next_frame());
+            self.client.conn.handle_next_frame();
+        }
+        response
+    }
+}
 /// Options for an individual Request.
 ///
 /// One of these will be built for you if you use one of the convenience
@@ -226,6 +360,7 @@ impl<'a, U: IntoUrl, C: NetworkConnector> RequestBuilder<'a, U, C> {
             }
         }
     }
+
 }
 
 /// A helper trait to allow overloading of the body parameter.
@@ -323,10 +458,10 @@ pub enum RedirectPolicy {
     FollowIf(fn(&Url) -> bool),
 }
 
-// This is a hack because of upstream typesystem issues. 
+// This is a hack because of upstream typesystem issues.
 impl Clone for RedirectPolicy {
     fn clone(&self) -> RedirectPolicy {
-        *self 
+        *self
     }
 }
 
