@@ -157,7 +157,7 @@ impl Request<Fresh> {
             // try!(client.conn.handle_next_frame());
             client.conn.handle_next_frame();
         }
-
+        // println!("123");
         return response;
 // //SOLICIT STYLE REQUEST
         // Request {

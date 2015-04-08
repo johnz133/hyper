@@ -67,7 +67,7 @@ pub type HttpResult<T> = Result<T, HttpError>;
 ///
 /// The full body of the response is included, regardless how large it may be.
 /// The headers contain both the meta-headers, as well as the actual headers.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Response {
     /// The ID of the stream to which the response is associated. HTTP/1.1 does
     /// not really have an equivalent to this.
