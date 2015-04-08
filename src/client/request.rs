@@ -14,6 +14,17 @@ use version;
 use HttpResult;
 use client::{Response, get_host_and_port};
 
+///////////////////////SOLICIT////////////
+use std::net::TcpStream;
+
+use super::super::http2::connection::ClientConnection;
+use super::super::http2::session::{DefaultSession, Stream};
+use super::super::http2;
+// use super::super::http2::{HttpError};
+// use super::super::http2::{StreamId, HttpResult, HttpError, Response, Header, Request};
+
+/////////////////////////////////////////////
+
 
 /// A client request to a remote server.
 pub struct Request<W> {
@@ -40,11 +51,204 @@ impl<W> Request<W> {
     pub fn method(&self) -> method::Method { self.method.clone() }
 }
 
+pub struct SimpleClient {
+    /// The underlying `ClientConnection` that the client uses
+    pub conn: ClientConnection<TcpStream, DefaultSession>,
+    /// Holds the ID that can be assigned to the next stream to be opened by the
+    /// client.
+    pub next_stream_id: u32,
+    /// Holds the domain name of the host to which the client is connected to.
+    pub host: Vec<u8>,
+}
+
+
 impl Request<Fresh> {
-    /// Create a new client request.
-    pub fn new(method: method::Method, url: Url) -> HttpResult<Request<Fresh>> {
-        let mut conn = HttpConnector(None);
-        Request::with_connector(method, url, &mut conn)
+    /// Create a new client request.                HttpResult<Request<Fresh>>
+    pub fn new(method: method::Method, url: Url) -> HttpResult<http2::Response> {
+        // GOAL: create a http/2
+        // Input: method and URL
+        // If first request (request that starts connection)
+            // If true need to do http/2 protocol handshake --> connection preface, in connection.rs ClientConnection init
+            // Set up TCP connction and stream identifiers
+            // If not, don't worry about it
+        //Output: Fresh HTTPResults
+
+        //Pseudo code:
+        //first we create a new connection
+        //then we ask the connection to initialize with preface
+        //then we store the connection somewhere
+        //
+        //let mut client = SimpleClient::connect("nghttp2.org", 80).ok().unwrap();
+
+        let mut client = SimpleClient {
+            conn: ClientConnection::new(
+                TcpStream::connect(&("nghttp2.org", 80)).unwrap(),
+                DefaultSession::new()),
+            next_stream_id: 1,
+            host: "nghttp2.org".as_bytes().to_vec(),
+        };
+
+        // let mut conn = ClientConnection::new(TcpStream::connect(&("nghttp2.org", 80)).unwrap(), DefaultSession::new());
+        // let mut next_stream_id = 1;
+        // let mut host = "nghttp2.org".as_bytes().to_vec();
+        // let mut conn = SimpleClient.conn;
+        // let mut next_stream_id = SimpleClient.next_stream_id;
+        // let mut host = SimpleClient.host;
+        // try!(conn.init());
+        client.conn.init();
+
+        let mut stream_id = client.next_stream_id;
+        client.next_stream_id += 2;
+
+        client.conn.session.new_stream(stream_id);
+
+        //creating the get request
+        let scheme = b"http".to_vec();
+        let mut headers: Vec<http2::Header> = vec![
+            (b":method".to_vec(), b"GET".to_vec()),
+            (b":path".to_vec(), b"/".to_vec()),
+            (b":authority".to_vec(), client.host.clone()),
+            (b":scheme".to_vec(), scheme),
+        ];
+
+        let request = http2::Request {
+                        stream_id: stream_id,
+                        headers: headers,
+                        body: Vec::new(),
+                    };
+
+        //no need to add extra headers for now
+        // headers.extend(extras.to_vec().into_iter());
+        //
+        // try!(conn.send_request(request));
+        client.conn.send_request(request);
+                // let response:HttpResult<Response> = client.get_response(stream_id);
+
+                // pub fn get_response(&mut self, stream_id: StreamId) -> HttpResult<Response> {
+                //     match self.conn.session.get_stream(stream_id) {
+                //         None => return Err(HttpError::UnknownStreamId),
+                //         Some(_) => {},
+                //     };
+                //     loop {
+                //         if let Some(stream) = self.conn.session.get_stream(stream_id) {
+                //             if stream.is_closed() {
+                //                 return Ok(Response {
+                //                     stream_id: stream.id(),
+                //                     headers: stream.headers.clone().unwrap(),
+                //                     body: stream.body.clone(),
+                //                 });
+                //             }
+                //         }
+                //         try!(self.handle_next_frame());
+                //     }
+                // }
+        let mut response:HttpResult<http2::Response>;
+        loop {
+            if let Some(stream) = client.conn.session.get_stream(stream_id) {
+                if stream.is_closed(){
+                    response = Ok(http2::Response{
+                        stream_id: stream.id(),
+                        headers: stream.headers.clone().unwrap(),
+                        body: stream.body.clone(),
+                    });
+                    break;
+                }
+            }
+            // try!(client.conn.handle_next_frame());
+            client.conn.handle_next_frame();
+        }
+
+        return response;
+// //SOLICIT STYLE REQUEST
+        // Request {
+        //     stream_id: stream_id,
+        //     headers: headers,
+        //     body: Vec::new(),
+        // }
+
+        // //HYPER STYLE REQUEST
+        // Request {
+        //     method: method,
+        //    headers: headers,
+        //     url: url,
+        //     streamid?
+        //     version: version::HttpVersion::Http11,
+        //     body: stream,
+        //     _marker: PhantomData,
+        // }
+
+
+        //GET REQUEST
+            //let response = client.get(b"/", &[]).unwrap();
+            // pub fn get(&mut self, path: &[u8], extra_headers: &[Header])
+            //     -> HttpResult<Response> {
+            //     let stream_id = try!(self.request(b"GET", path, extra_headers));
+            //     self.get_response(stream_id)
+            //
+        // let stream_id = try!(client.request(b"GET", b"/", &[]));
+        // //Defining client.request:
+        //                 pub fn request(&mut self, method: &[u8], path: &[u8], extras: &[Header])
+        //                     -> HttpResult<StreamId> {
+        //                     let stream_id = self.new_stream(); //set stream id
+        //                     // Only http supported for now...
+        //                     let scheme = b"http".to_vec();  // set the scheme
+        //                     let host = self.host.clone();   //set the host
+        //                     let mut headers: Vec<Header> = vec![  //set the header
+        //                         (b":method".to_vec(), method.to_vec()),
+        //                         (b":path".to_vec(), path.to_vec()),
+        //                         (b":authority".to_vec(), host),
+        //                         (b":scheme".to_vec(), scheme),
+        //                     ];
+        //                     headers.extend(extras.to_vec().into_iter());  //add some more headers
+
+        //                     try!(self.conn.send_request(Request {
+        //                         stream_id: stream_id,
+        //                         headers: headers,
+        //                         body: Vec::new(),
+        //                     }));
+
+        //                     Ok(stream_id)
+        //                 }
+            //the meat of client.request
+            // let request = Request {
+            //             stream_id: stream_id,
+            //             headers: headers,
+            //             body: Vec::new(),
+            //         };
+
+        //this is gonna be hyper's client.send, referring to hyperClient.rs
+        //     try!(client.conn.send_request(request));
+        // let response:HttpResult<Response> = client.get_response(stream_id);
+
+        //TADA
+
+
+        // Ok(client)
+
+
+        //Parse the request and if its http2, use with connecter for http2
+
+        //return this.
+        //this will be casted into a HttpResult<Request<Fresh>
+        // Ok(Request {
+        //     method: method,
+        //     // headers: headers,
+        //     url: url,
+        //     // streamid?
+        //     // version: version::HttpVersion::Http11,
+        //     // body: stream,
+        //     // _marker: PhantomData,
+        // })
+        // HYPER ORIGINAL
+        // TODO: Implement Router for Http1 > 2
+
+        // import connect.rs into this file
+        // parse the outgoing request
+        // if it's of type http2. we use solict streams
+        // pass it off to http2_connector
+
+        // let mut conn = HttpConnector(None);
+        // Request::with_connector(method, url, &mut conn)
     }
 
     /// Create a new client request with a specific underlying NetworkStream.
@@ -55,7 +259,7 @@ impl Request<Fresh> {
         debug!("{} {}", method, url);
         let (host, port) = try!(get_host_and_port(&url));
 
-        let stream = try!(connector.connect(&*host, port, &*url.scheme));
+        let stream = try!(connector.connect(&*host, port, &*url.scheme));//destructures into http/https
         // FIXME: Use Type ascription
         let stream: Box<NetworkStream + Send> = Box::new(stream);
         let stream = ThroughWriter(BufWriter::new(stream));
@@ -70,7 +274,7 @@ impl Request<Fresh> {
             method: method,
             headers: headers,
             url: url,
-            version: version::HttpVersion::Http11,
+            version: version::HttpVersion::Http20,
             body: stream,
             _marker: PhantomData,
         })

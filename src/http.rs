@@ -17,7 +17,7 @@ use {HttpError, HttpResult};
 use self::HttpReader::{SizedReader, ChunkedReader, EofReader, EmptyReader};
 use self::HttpWriter::{ThroughWriter, ChunkedWriter, SizedWriter, EmptyWriter};
 
-/// Readers to handle different Transfer-Encodings.
+/// Read€ers to handle different Transfer-Encodings.
 ///
 /// If a message body does not include a Transfer-Encoding, it *should*
 /// include a Content-Length header.

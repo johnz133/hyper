@@ -11,6 +11,9 @@ authors = ["Sean McArthur <sean.monstar@gmail.com>",
            "Jonathan Reem <jonathan.reem@gmail.com>"]
 keywords = ["http", "hyper", "hyperium"]
 
+exclude = ["src/http2/notes.rs", "examples"]
+
+
 [dependencies]
 cookie = "*"
 httparse = "*"

@@ -7,7 +7,7 @@ use std::error::Error;
 use hpack::decoder::DecoderError;
 
 pub mod frame;
-pub mod transport;
+// pub mod transport;
 pub mod connection;
 pub mod session;
 

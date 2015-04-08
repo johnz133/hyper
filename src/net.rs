@@ -325,6 +325,7 @@ pub type ContextVerifier<'v> = Box<FnMut(&mut SslContext) -> ()+'v>;
 impl<'v> NetworkConnector for HttpConnector<'v> {
     type Stream = HttpStream;
 
+    // insert http2 here?
     fn connect(&mut self, host: &str, port: u16, scheme: &str) -> io::Result<HttpStream> {
         let addr = &(host, port);
         match scheme {

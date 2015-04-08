@@ -62,12 +62,12 @@ use super::super::http2::{StreamId, HttpResult, HttpError, Response, Header, Req
 #[unstable = "This is unstable"]
 pub struct SimpleClient {
     /// The underlying `ClientConnection` that the client uses
-    conn: ClientConnection<TcpStream, DefaultSession>,
+    pub conn: ClientConnection<TcpStream, DefaultSession>,
     /// Holds the ID that can be assigned to the next stream to be opened by the
     /// client.
-    next_stream_id: u32,
+    pub next_stream_id: u32,
     /// Holds the domain name of the host to which the client is connected to.
-    host: Vec<u8>,
+    pub host: Vec<u8>,
 }
 
 impl SimpleClient {
@@ -112,17 +112,17 @@ impl SimpleClient {
     /// Any IO errors are propagated.
     pub fn request(&mut self, method: &[u8], path: &[u8], extras: &[Header])
             -> HttpResult<StreamId> {
-        let stream_id = self.new_stream();
+        let stream_id = self.new_stream(); //set stream id
         // Only http supported for now...
-        let scheme = b"http".to_vec();
-        let host = self.host.clone();
-        let mut headers: Vec<Header> = vec![
+        let scheme = b"http".to_vec();  // set the scheme
+        let host = self.host.clone();   //set the host
+        let mut headers: Vec<Header> = vec![  //set the header
             (b":method".to_vec(), method.to_vec()),
             (b":path".to_vec(), path.to_vec()),
             (b":authority".to_vec(), host),
             (b":scheme".to_vec(), scheme),
         ];
-        headers.extend(extras.to_vec().into_iter());
+        headers.extend(extras.to_vec().into_iter());  //add some more headers
 
         try!(self.conn.send_request(Request {
             stream_id: stream_id,

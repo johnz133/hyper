@@ -270,6 +270,9 @@ impl<TS, S> ClientConnection<TS, S> where TS: TransportStream, S: Session {
     ///
     /// Request body is ignored for now.
     pub fn send_request(&mut self, req: Request) -> HttpResult<()> {
+
+        //allows this to read a hyper request
+
         let headers_fragment = self.encoder.encode(&req.headers);
         // For now, sending header fragments larger than 16kB is not supported
         // (i.e. the encoded representation cannot be split into CONTINUATION
